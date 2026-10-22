@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="referrer" content="origin">
+    <title>Intent</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+        #wrap {
+            position: relative;
+            aspect-ratio: 16 / 9;
+            width: 100vw;
+            max-width: calc(100vh * 16 / 9);
+        }
+        #wrap iframe, #player {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+        }
+        #msg {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 15px;
+            text-align: center;
+            padding: 24px;
+        }
+    </style>
+</head>
+<body>
+<div id="wrap">
+    <div id="player"></div>
+    <div id="msg"></div>
+</div>
+<script>
+    // Intent sync player.
+    //   ?v=VIDEO_ID      the video to play
+    //   &start=SECONDS   where to resume
+    //   &list=ID,ID,ID   what to play next (Intent's own queue)
+    var params = new URLSearchParams(location.search);
+    var videoId = params.get('v') || '';
+    var startAt = parseInt(params.get('start') || '0', 10) || 0;
+    var queue = (params.get('list') || '').split(',').filter(Boolean);
+    var origin = location.origin;
+
+    var player = null;
+    var current = videoId;
+    var msg = document.getElementById('msg');
+
+    if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
+        msg.style.display = 'flex';
+        msg.textContent = 'No video given. Open this page from the Intent app.';
+    } else {
+        var script = document.createElement('script');
+        script.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(script);
+    }
+
+    function onYouTubeIframeAPIReady() {
+        player = new YT.Player('player', {
+            videoId: current,
+            playerVars: {
+                rel: 0,               // no unrelated videos at the end
+                iv_load_policy: 3,    // no annotations
+                playsinline: 1,
+                fs: 1,
+                autoplay: 0,
+                start: startAt,
+                origin: origin,
+                enablejsapi: 1
+            },
+            events: {
+                onStateChange: function (event) {
+                    // 0 = finished: continue with the next video in Intent's queue
+                    if (event.data === 0 && queue.length) {
+                        var next = queue.shift();
+                        current = next;
+                        player.loadVideoById({ videoId: next });
+                    }
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>
